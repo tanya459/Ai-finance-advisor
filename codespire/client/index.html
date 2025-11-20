@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home - AI Finance Advisor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .nav-link { transition: all 0.2s; }
+        .nav-link:hover { transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center">
+
+    <!-- Navigation Bar -->
+    <nav class="w-full bg-white shadow-lg p-4 sticky top-0 z-10">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-extrabold text-indigo-700">AI Finance Advisor</h1>
+            <div class="flex space-x-4">
+                <a href="index.html" class="nav-link px-3 py-2 text-indigo-700 border-b-2 border-indigo-500 font-semibold">Home</a>
+                <a href="chat.html" class="nav-link px-3 py-2 text-gray-600 hover:text-indigo-500">Chat</a>
+                <a href="upload.html" class="nav-link px-3 py-2 text-gray-600 hover:text-indigo-500">Upload</a>
+                <a href="budget.html" class="nav-link px-3 py-2 text-gray-600 hover:text-indigo-500">Budget Plan</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="w-full max-w-4xl p-8 mt-10 bg-white rounded-xl shadow-2xl">
+        
+        <!-- Hero Section -->
+        <header class="text-center mb-10">
+            <h2 class="text-5xl font-extrabold text-gray-800 mb-4">Generate Your <span class="text-indigo-600">Smart Budget</span></h2>
+            <p class="text-xl text-gray-500">Enter your financial details to receive a personalized, 50/30/20 plan from our AI advisor.</p>
+        </header>
+
+        <!-- Input Form -->
+        <div id="form-container" class="space-y-6 p-8 border border-gray-200 rounded-lg bg-indigo-50">
+            
+            <div>
+                <label for="income" class="block text-sm font-medium text-gray-700 mb-2">Monthly Income (₹)</label>
+                <input type="number" id="income" placeholder="e.g., 80000" 
+                       class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                       value="75000">
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label for="expenses" class="block text-sm font-medium text-gray-700 mb-2">Total Monthly Fixed Expenses (₹)</label>
+                    <input type="number" id="expenses" placeholder="e.g., 20000 (Rent, Utilities)" 
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                           value="30000">
+                </div>
+                <div>
+                    <label for="emi" class="block text-sm font-medium text-gray-700 mb-2">Total Monthly EMIs/Debt (₹)</label>
+                    <input type="number" id="emi" placeholder="e.g., 5000 (Loans, Credit Cards)" 
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                           value="5000">
+                </div>
+            </div>
+
+            <div>
+                <label for="goal" class="block text-sm font-medium text-gray-700 mb-2">Your Primary Financial Goal</label>
+                <input type="text" id="goal" placeholder="e.g., Save for a car downpayment in 2 years" 
+                       class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                       value="Save ₹15,00,000 for a house downpayment in 3 years.">
+            </div>
+
+            <button id="generate-plan-btn"
+                    class="w-full px-6 py-3 bg-indigo-600 text-white font-bold rounded-lg shadow-xl hover:bg-indigo-700 transition duration-300 disabled:opacity-50 flex items-center justify-center space-x-2">
+                <span id="btn-text">🚀 Generate Plan</span>
+                <svg id="loading-spinner" class="animate-spin h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Message Box for Status/Errors -->
+        <div id="message-box" class="mt-6 p-4 text-sm text-center bg-yellow-100 text-yellow-800 rounded-lg hidden">
+            <p>Processing request...</p>
+        </div>
+
+    </main>
+
+    <script>
+        const API_URL = 'http://127.0.0.1:5000/api/budget';
+        
+        const incomeInput = document.getElementById('income');
+        const expensesInput = document.getElementById('expenses');
+        const emiInput = document.getElementById('emi');
+        const goalInput = document.getElementById('goal');
+        const generateBtn = document.getElementById('generate-plan-btn');
+        const btnText = document.getElementById('btn-text');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const messageBox = document.getElementById('message-box');
+
+        function showMessage(text, type = 'info') {
+            messageBox.textContent = text;
+            messageBox.className = 'mt-6 p-4 text-sm text-center rounded-lg';
+            messageBox.classList.remove('hidden');
+
+            if (type === 'error') {
+                messageBox.classList.add('bg-red-100', 'text-red-800');
+            } else if (type === 'success') {
+                messageBox.classList.add('bg-green-100', 'text-green-800');
+            } else { // info
+                messageBox.classList.add('bg-yellow-100', 'text-yellow-800');
+            }
+        }
+
+        generateBtn.addEventListener('click', async () => {
+            const income = parseFloat(incomeInput.value) || 0;
+            const expenses = parseFloat(expensesInput.value) || 0;
+            const emi = parseFloat(emiInput.value) || 0;
+            const goal = goalInput.value.trim();
+            const totalFixedExpenses = expenses + emi; // Combine fixed expenses and EMI
+
+            if (income <= 0 || goal === "") {
+                showMessage("Please enter a valid Income and a Financial Goal.", 'error');
+                return;
+            }
+
+            // UI State: Loading
+            generateBtn.disabled = true;
+            btnText.textContent = 'Generating Plan...';
+            loadingSpinner.classList.remove('hidden');
+            showMessage("Contacting AI Financial Advisor. This may take a moment...", 'info');
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        income: income,
+                        expenses: totalFixedExpenses, // Sending combined expenses
+                        goal: goal
+                    }),
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    const errorMessage = data.error || `Server Error: ${response.status} ${response.statusText}`;
+                    showMessage(`❌ Failed to generate plan: ${errorMessage}`, 'error');
+                    return;
+                }
+
+                showMessage("✅ Budget Plan successfully generated and saved to the database!", 'success');
+                
+                // Redirect to the budget output page to show the result
+                setTimeout(() => {
+                    window.location.href = 'budget.html';
+                }, 1500);
+
+            } catch (error) {
+                console.error('Fetch Error:', error);
+                showMessage('❌ Network Error: Could not connect to the Flask backend. Ensure the server/server.py is running.', 'error');
+            } finally {
+                // UI State: Reset (only if no redirect occurs)
+                generateBtn.disabled = false;
+                btnText.textContent = '🚀 Generate Plan';
+                loadingSpinner.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>

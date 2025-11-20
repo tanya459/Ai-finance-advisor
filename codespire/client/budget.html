@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Budget Plan - AI Finance Advisor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .nav-link { transition: all 0.2s; }
+        .nav-link:hover { transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .advice-section p, .advice-section ul { margin-top: 0.5rem; margin-bottom: 1rem; }
+        .advice-section ul { list-style-type: disc; margin-left: 1.5rem; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center">
+
+    <!-- Navigation Bar -->
+    <nav class="w-full bg-white shadow-lg p-4 sticky top-0 z-10">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-extrabold text-indigo-700">AI Finance Advisor</h1>
+            <div class="flex space-x-4">
+                <a href="index.html" class="nav-link px-3 py-2 text-gray-600 hover:text-indigo-500">Home</a>
+                <a href="chat.html" class="nav-link px-3 py-2 text-gray-600 hover:text-indigo-500">Chat</a>
+                <a href="upload.html" class="nav-link px-3 py-2 text-gray-600 hover:text-indigo-500">Upload</a>
+                <a href="budget.html" class="nav-link px-3 py-2 text-indigo-700 border-b-2 border-indigo-500 font-semibold">Budget Plan</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="w-full max-w-6xl p-4 md:p-8 mt-10 bg-white rounded-xl shadow-2xl">
+        
+        <header class="text-center mb-10">
+            <h2 class="text-4xl font-extrabold text-gray-800 mb-2">Your <span class="text-indigo-600">Generated Budget</span></h2>
+            <p id="last-updated" class="text-md text-gray-500 italic">Loading the latest plan...</p>
+        </header>
+
+        <div id="loading-state" class="text-center py-20 text-indigo-600 text-xl font-medium animate-pulse">
+            Fetching budget data from the server...
+        </div>
+
+        <div id="plan-output" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Column 1: Pie Chart -->
+            <div class="lg:col-span-1 bg-gray-50 p-6 rounded-lg shadow-inner flex flex-col items-center">
+                <h3 class="text-xl font-bold text-gray-700 mb-4">50/30/20 Breakdown</h3>
+                <div class="w-full max-w-xs">
+                    <canvas id="budget-chart"></canvas>
+                </div>
+                <div class="mt-4 text-center">
+                    <p class="text-sm text-gray-600">Based on your Net Disposable Income (Income - Fixed Expenses).</p>
+                </div>
+            </div>
+
+            <!-- Column 2 & 3: Budget Details and Advice -->
+            <div class="lg:col-span-2 space-y-8">
+                
+                <!-- Budget Summary -->
+                <div class="bg-indigo-50 p-6 rounded-lg shadow-md">
+                    <h3 class="text-2xl font-bold text-indigo-700 mb-4 border-b border-indigo-300 pb-2">Budget Summary</h3>
+                    <div id="budget-summary" class="text-gray-700 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Summary details populated by JS -->
+                    </div>
+                </div>
+
+                <!-- AI Advice Section -->
+                <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+                    <h3 class="text-2xl font-bold text-gray-700 mb-4 border-b border-gray-300 pb-2">AI Financial Advice</h3>
+                    <div id="ai-advice" class="advice-section text-gray-600">
+                        <!-- Advice details populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+    </main>
+
+    <script>
+        const API_URL = 'http://127.0.0.1:5000/api/budget';
+        const loadingState = document.getElementById('loading-state');
+        const planOutput = document.getElementById('plan-output');
+        const lastUpdatedEl = document.getElementById('last-updated');
+        const budgetSummaryEl = document.getElementById('budget-summary');
+        const aiAdviceEl = document.getElementById('ai-advice');
+        let chartInstance = null; // To hold the Chart.js instance
+
+        async function fetchBudgetPlan() {
+            loadingState.classList.remove('hidden');
+            planOutput.classList.add('hidden');
+
+            try {
+                const response = await fetch(API_URL);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || data.message || "Failed to load budget plan.");
+                }
+
+                if (!data.plan) {
+                    throw new Error("No budget plan found in the database. Please generate one on the Home page.");
+                }
+
+                renderPlan(data.plan, data.created_at);
+
+            } catch (error) {
+                console.error('Fetch Error:', error);
+                
+                // --- MODIFICATION: Improved Error Messaging for Network Failure ---
+                let errorMessage = `❌ Network Error: Server se connect nahi ho paya (${API_URL}).`;
+                if (error instanceof TypeError && (error.message.includes('fetch') || error.message.includes('network'))) {
+                    errorMessage += " Kripya terminal mein jaakar **Flask Server ko dobara run karein** (jaise: 'flask run').";
+                } else {
+                    errorMessage = `❌ Error: ${error.message}. Kripya naya plan Home page par generate karein.`;
+                }
+
+                loadingState.textContent = errorMessage;
+                loadingState.classList.add('text-red-600', 'bg-red-100', 'p-4', 'rounded-lg');
+            } finally {
+                loadingState.classList.add('hidden');
+                planOutput.classList.remove('hidden');
+            }
+        }
+
+        function renderPlan(plan, created_at) {
+            // --- Defensive checks for required nested properties ---
+            const monthlyIncome = plan.monthly_income ?? 0;
+            const monthlyExpenses = plan.monthly_expenses ?? 0;
+            const savingsPotential = monthlyIncome - monthlyExpenses;
+            
+            const breakdown = plan.budget_breakdown || {}; // Default to empty object if missing
+            const advice = plan.advice || {}; // Default to empty object if missing
+            
+            const needs = breakdown.needs_50_percent ?? 0;
+            const wants = breakdown.wants_30_percent ?? 0;
+            const savings = breakdown.savings_20_percent ?? 0;
+
+
+            // --- 0. Last Updated ---
+            lastUpdatedEl.textContent = `Last generated: ${new Date(created_at).toLocaleString()}`;
+
+
+            // --- 1. Render Summary ---
+            budgetSummaryEl.innerHTML = `
+                <div class="p-3 bg-white rounded-md shadow-sm border border-indigo-200">
+                    <p class="text-sm font-medium text-gray-500">Monthly Income</p>
+                    <p class="text-xl font-bold text-green-600">₹${monthlyIncome.toLocaleString('en-IN')}</p>
+                </div>
+                <div class="p-3 bg-white rounded-md shadow-sm border border-indigo-200">
+                    <p class="text-sm font-medium text-gray-500">Fixed Expenses (Excl. EMI)</p>
+                    <p class="text-xl font-bold text-red-600">₹${monthlyExpenses.toLocaleString('en-IN')}</p>
+                </div>
+                <div class="p-3 bg-white rounded-md shadow-sm border border-indigo-200 md:col-span-2">
+                    <p class="text-sm font-medium text-gray-500">Savings Potential / Disposable Income</p>
+                    <p class="text-2xl font-extrabold ${savingsPotential > 0 ? 'text-blue-600' : 'text-red-600'}">₹${savingsPotential.toLocaleString('en-IN')}</p>
+                </div>
+                <div class="p-3 bg-white rounded-md shadow-sm border border-indigo-200">
+                    <p class="text-sm font-medium text-indigo-500">50% Needs Budget</p>
+                    <p class="text-xl font-bold">₹${needs.toLocaleString('en-IN')}</p>
+                </div>
+                <div class="p-3 bg-white rounded-md shadow-sm border border-indigo-200">
+                    <p class="text-sm font-medium text-indigo-500">30% Wants Budget</p>
+                    <p class="text-xl font-bold">₹${wants.toLocaleString('en-IN')}</p>
+                </div>
+                <div class="p-3 bg-white rounded-md shadow-sm border border-indigo-200 md:col-span-2">
+                    <p class="text-sm font-medium text-indigo-500">20% Savings/Debt</p>
+                    <p class="text-xl font-bold">₹${savings.toLocaleString('en-IN')}</p>
+                </div>
+            `;
+
+            // --- 2. Render Advice ---
+            const summaryText = advice.summary || "No summary provided by AI.";
+            const goalProjectionText = advice.goal_projection || "Goal projection data is missing.";
+            const actionSteps = advice.action_steps || ["No specific action steps provided by AI."];
+
+            aiAdviceEl.innerHTML = `
+                <h4 class="text-xl font-semibold text-indigo-600 mb-2">${summaryText}</h4>
+                <p class="mt-2 text-gray-700"><strong>Goal Projection:</strong> ${goalProjectionText}</p>
+                <h4 class="text-xl font-semibold text-gray-700 mt-4 mb-2">Actionable Steps:</h4>
+                <ul class="list-disc ml-6 space-y-1">
+                    ${actionSteps.map(step => `<li>${step}</li>`).join('')}
+                </ul>
+            `;
+
+            // --- 3. Render Chart ---
+            renderChart({ needs, wants, savings }); // Pass cleaned values to chart function
+        }
+
+        function renderChart(breakdown) {
+            const ctx = document.getElementById('budget-chart').getContext('2d');
+
+            if (chartInstance) {
+                chartInstance.destroy(); // Destroy previous chart instance
+            }
+
+            const data = {
+                labels: ['50% Needs', '30% Wants', '20% Savings/Debt'],
+                datasets: [{
+                    data: [
+                        breakdown.needs,
+                        breakdown.wants,
+                        breakdown.savings
+                    ],
+                    backgroundColor: [
+                        '#4f46e5', // Indigo 600
+                        '#818cf8', // Indigo 400
+                        '#a5b4fc'  // Indigo 300
+                    ],
+                    hoverOffset: 4
+                }]
+            };
+
+            chartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: data,
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                        },
+                        title: {
+                            display: false,
+                        }
+                    }
+                }
+            });
+        }
+
+        // Fetch plan on page load
+        window.onload = fetchBudgetPlan;
+    </script>
+</body>
+</html>
